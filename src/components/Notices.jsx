@@ -1,7 +1,17 @@
-import { isIOS, isStandalone, showLocalTest } from '../lib/push.js'
+import { configured, isIOS, isStandalone, showLocalTest } from '../lib/push.js'
 
 const link =
   'underline underline-offset-4 decoration-line hover:text-ink hover:decoration-ink rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50'
+
+// Por qué este dispositivo no puede recibir avisos. Conviene decirlo y no
+// esconder la fila: casi siempre es la URL, y así no parece que la app falla.
+function unsupportedReason() {
+  if (!window.isSecureContext) {
+    return <span>Abrí Nova por https: por http el navegador no deja activarlos.</span>
+  }
+  if (!configured) return <span>Falta configurar el servidor de avisos.</span>
+  return <span>Este navegador no los soporta.</span>
+}
 
 // Fila "Avisos" del pie: activar/desactivar los push de este dispositivo.
 export function Notices({ status, onEnable, onDisable, notify }) {
@@ -13,9 +23,9 @@ export function Notices({ status, onEnable, onDisable, notify }) {
     }
   }
 
-  if (status === 'unsupported') return null
-
   let content
+  // Va primero: en iPhone sin instalar no existe ni la API de notificaciones,
+  // así que este aviso tiene que ganarle al de "no soportado".
   if (isIOS() && !isStandalone()) {
     content = (
       <span>
@@ -23,6 +33,8 @@ export function Notices({ status, onEnable, onDisable, notify }) {
         → <b className="font-medium text-ink">Agregar a inicio</b>.
       </span>
     )
+  } else if (status === 'unsupported') {
+    content = unsupportedReason()
   } else if (status === 'denied') {
     content = <span>Bloqueados en el navegador. Permitilos en la configuración del sitio.</span>
   } else if (status === 'on') {
