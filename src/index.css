@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-paper: #ffffff;
+  --color-soft: #f4f3ef;
+  --color-ink: #000000;
+  --color-muted: #6b6b66;
+  --color-line: #e6e4de;
+  --color-amber: #ffc24b;
+  --color-amber-deep: #a16207;
+  --color-overdue: #d6301f;
+  --color-soon: #b7791f;
+  --color-ok: #2e7d4f;
+
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  .font-display {
+    font-variation-settings: 'opsz' 72, 'SOFT' 40;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}
+
+@layer components {
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full font-medium
+      whitespace-nowrap select-none transition-[transform,background-color,color] duration-100
+      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink
+      active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply bg-ink text-paper px-4 py-2 text-[15px] hover:bg-neutral-800;
+  }
+
+  .btn-ghost {
+    @apply text-muted px-3 py-2 text-[15px] hover:text-ink hover:bg-soft;
+  }
+
+  .btn-danger {
+    @apply bg-overdue text-paper px-4 py-2 text-[15px];
+  }
+
+  .chip {
+    @apply rounded-full border border-line bg-paper px-3 py-1.5 text-sm text-ink
+      transition-colors hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-ink;
+  }
+
+  .field-input {
+    @apply w-full bg-transparent border-0 border-b border-line py-2 text-base text-ink
+      placeholder:text-muted/70 outline-none transition-colors focus:border-ink;
+  }
+
+  /* Marcador ámbar detrás del texto, como un resaltador. */
+  .hl {
+    background: linear-gradient(
+      to top,
+      transparent 8%,
+      var(--color-amber) 8%,
+      var(--color-amber) 42%,
+      transparent 42%
+    );
+    padding-inline: 0.08em;
+    margin-inline: -0.08em;
+  }
+}
+
+@layer components {
+  .chip-on {
+    @apply bg-ink text-paper border-ink;
+  }
+}
