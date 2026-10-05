@@ -34,7 +34,7 @@ function App() {
     importItems,
     reset,
   } = useItems(auth.user)
-  const push = usePush(items)
+  const push = usePush(auth.user)
   const [adding, setAdding] = useState(false)
   const [toast, setToast] = useState(null)
   const closeToast = useCallback(() => setToast(null), [])

@@ -1,4 +1,4 @@
-// Crea o actualiza la colección `nova_items` en PocketBase. Se puede correr las veces
+// Crea o actualiza las colecciones de Nova en PocketBase (`nova_items`, `nova_push_subs`). Se puede correr las veces
 // que haga falta: si ya existe, le reaplica campos, reglas e índices.
 //
 //   npm run pb:setup
@@ -78,10 +78,41 @@ const items = {
     { name: 'clientUpdatedAt', type: 'number', onlyInt: true },
     // Los borrados quedan como marca para que lleguen a los otros dispositivos.
     { name: 'deleted', type: 'bool' },
+    // Vencimiento ya avisado por push (lo escribe el servidor, no la app).
+    { name: 'notifiedDue', type: 'text', max: 10 },
     { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
     { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
   ],
   indexes: ['CREATE UNIQUE INDEX `idx_nova_items_user_uid` ON `nova_items` (`user`, `uid`)'],
+}
+
+// Dispositivos anotados para avisos. Sin reglas: solo el servidor la toca
+// (rutas /api/nova/push/* del binario propio, ver server/).
+const pushSubs = {
+  name: 'nova_push_subs',
+  type: 'base',
+  listRule: null,
+  viewRule: null,
+  createRule: null,
+  updateRule: null,
+  deleteRule: null,
+  fields: [
+    {
+      name: 'user',
+      type: 'relation',
+      required: true,
+      collectionId: users.id,
+      cascadeDelete: true,
+      maxSelect: 1,
+    },
+    { name: 'endpoint', type: 'text', required: true, max: 1000 },
+    { name: 'p256dh', type: 'text', required: true, max: 200 },
+    { name: 'auth', type: 'text', required: true, max: 100 },
+    { name: 'tz', type: 'text', max: 64 },
+    { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+    { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+  ],
+  indexes: ['CREATE UNIQUE INDEX `idx_nova_push_subs_endpoint` ON `nova_push_subs` (`endpoint`)'],
 }
 
 async function find(name) {
@@ -105,18 +136,23 @@ if (!existing) {
   }
 }
 
-if (existing) {
-  // Conserva los ids de los campos que ya existen para no perder datos.
-  const byName = new Map(existing.fields.map((f) => [f.name, f]))
-  const fields = items.fields.map((f) => (byName.has(f.name) ? { ...byName.get(f.name), ...f } : f))
-  const keep = existing.fields.filter((f) => f.system)
-  for (const f of keep) if (!fields.some((x) => x.name === f.name)) fields.unshift(f)
-  await api(`/api/collections/${existing.id}`, { method: 'PATCH', body: { ...items, fields } })
-  console.log('Colección `nova_items` actualizada.')
-} else {
-  await api('/api/collections', { method: 'POST', body: items })
-  console.log('Colección `nova_items` creada.')
+async function apply(def, existing) {
+  if (existing) {
+    // Conserva los ids de los campos que ya existen para no perder datos.
+    const byName = new Map(existing.fields.map((f) => [f.name, f]))
+    const fields = def.fields.map((f) => (byName.has(f.name) ? { ...byName.get(f.name), ...f } : f))
+    const keep = existing.fields.filter((f) => f.system)
+    for (const f of keep) if (!fields.some((x) => x.name === f.name)) fields.unshift(f)
+    await api(`/api/collections/${existing.id}`, { method: 'PATCH', body: { ...def, fields } })
+    console.log(`Colección \`${def.name}\` actualizada.`)
+  } else {
+    await api('/api/collections', { method: 'POST', body: def })
+    console.log(`Colección \`${def.name}\` creada.`)
+  }
 }
+
+await apply(items, existing)
+await apply(pushSubs, await find(pushSubs.name))
 
 const u = users.passwordAuth
 console.log(

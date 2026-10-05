@@ -1,11 +1,10 @@
-import { describeItem } from './items.js'
+import { pb, pbConfigured } from './pb.js'
 
-const BASE = import.meta.env.VITE_SUPABASE_URL
-const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-const ENDPOINT = `${BASE}/functions/v1/push`
-const HEADERS = { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}`, apikey: KEY }
+// Avisos por PocketBase: el servidor ya tiene los ítems de la cuenta, así que el
+// dispositivo solo se anota (endpoint + claves + zona horaria).
+const BASE = '/api/nova/push'
 
-export const configured = Boolean(BASE && KEY)
+export const configured = pbConfigured
 
 export function pushSupported() {
   return (
@@ -27,9 +26,41 @@ function urlBase64ToUint8Array(base64) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
 }
 
+function sameKey(buffer, base64) {
+  if (!buffer) return false
+  const a = new Uint8Array(buffer)
+  const b = urlBase64ToUint8Array(base64)
+  return a.length === b.length && a.every((x, i) => x === b[i])
+}
+
+async function serverKey() {
+  try {
+    const { publicKey } = await pb.send(`${BASE}/key`, {})
+    return publicKey
+  } catch {
+    throw new Error('No pude conectar con el servidor de avisos.')
+  }
+}
+
 export async function getSubscription() {
   const reg = await navigator.serviceWorker.ready
   return reg.pushManager.getSubscription()
+}
+
+// La suscripción del navegador, hecha con la clave actual del servidor. Si se
+// había hecho con otra (la de Supabase, o el servidor regeneró sus claves),
+// se rehace: con una clave vieja los avisos nunca llegarían.
+export async function currentSubscription() {
+  const sub = await getSubscription()
+  if (!sub) return null
+  const key = await serverKey()
+  if (sameKey(sub.options?.applicationServerKey, key)) return sub
+  await sub.unsubscribe()
+  const reg = await navigator.serviceWorker.ready
+  return reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(key),
+  })
 }
 
 // Pide permiso y suscribe este dispositivo. Debe llamarse desde un toque del usuario.
@@ -40,39 +71,32 @@ export async function subscribe() {
     err.code = permission
     throw err
   }
-  const res = await fetch(ENDPOINT, { headers: HEADERS })
-  if (!res.ok) throw new Error('No pude conectar con el servidor de avisos.')
-  const { publicKey } = await res.json()
+  const existing = await currentSubscription()
+  if (existing) return existing
+  const key = await serverKey()
   const reg = await navigator.serviceWorker.ready
   return reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
+    applicationServerKey: urlBase64ToUint8Array(key),
   })
 }
 
-// Manda la agenda completa: el servidor solo conoce nombre + fecha de vencimiento.
-export async function syncSchedules(subscription, items) {
+// Anota (o actualiza) este dispositivo en la cuenta con la que se entró.
+export async function register(subscription) {
   const { endpoint, keys } = subscription.toJSON()
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: HEADERS,
-    body: JSON.stringify({
-      endpoint,
-      keys,
-      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      schedules: items.map((it) => ({
-        itemId: it.id,
-        name: it.name,
-        dueAt: describeItem(it).dueAt,
-      })),
-    }),
-  })
-  if (!res.ok) throw new Error('No pude guardar la agenda de avisos.')
+  try {
+    await pb.send(`${BASE}/subscription`, {
+      method: 'POST',
+      body: { endpoint, keys, tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    })
+  } catch {
+    throw new Error('No pude anotar este dispositivo para los avisos.')
+  }
 }
 
 export async function unsubscribe(subscription) {
   const { endpoint } = subscription.toJSON()
-  await fetch(ENDPOINT, { method: 'DELETE', headers: HEADERS, body: JSON.stringify({ endpoint }) })
+  await pb.send(`${BASE}/subscription`, { method: 'DELETE', body: { endpoint } })
   await subscription.unsubscribe()
 }
 

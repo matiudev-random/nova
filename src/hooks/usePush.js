@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  currentSubscription,
   getSubscription,
   pushSupported,
+  register,
   subscribe,
-  syncSchedules,
   unsubscribe,
 } from '../lib/push.js'
 
 // status: 'unsupported' | 'loading' | 'off' | 'enabling' | 'on' | 'denied'
-export function usePush(items) {
+export function usePush(user) {
   const [status, setStatus] = useState(() => (pushSupported() ? 'loading' : 'unsupported'))
   const subRef = useRef(null)
+  const userId = user?.id ?? null
 
   useEffect(() => {
     if (status !== 'loading') return
@@ -23,23 +25,31 @@ export function usePush(items) {
       .catch(() => setStatus('off'))
   }, [status])
 
-  // Cada cambio en los ítems reenvía la agenda (con un respiro para no spamear).
+  // Con sesión y avisos activos: se vuelve a anotar el dispositivo (por si cambió
+  // la cuenta, la zona horaria o la clave del servidor). Sin red, queda para la próxima.
   useEffect(() => {
-    if (status !== 'on' || !subRef.current) return
-    const t = setTimeout(() => {
-      syncSchedules(subRef.current, items).catch(() => {})
-    }, 800)
-    return () => clearTimeout(t)
-  }, [items, status])
+    if (status !== 'on' || !userId) return
+    let cancelled = false
+    currentSubscription()
+      .then(async (sub) => {
+        if (cancelled || !sub) return
+        subRef.current = sub
+        await register(sub)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [status, userId])
 
   async function enable() {
     if (status === 'enabling') return { ok: false, message: 'Ya estoy en eso.' }
     setStatus('enabling')
     try {
-      // Si el navegador ya tiene una suscripción, se reutiliza: nunca dos por dispositivo.
-      const sub = (await getSubscription()) ?? (await subscribe())
+      // Si el navegador ya tiene una suscripción válida, se reutiliza: nunca dos por dispositivo.
+      const sub = await subscribe()
       subRef.current = sub
-      await syncSchedules(sub, items)
+      await register(sub)
       setStatus('on')
       return { ok: true }
     } catch (err) {
@@ -54,6 +64,7 @@ export function usePush(items) {
         await unsubscribe(subRef.current)
       } catch {
         // Si el servidor no responde, igual se desuscribe localmente.
+        await subRef.current.unsubscribe().catch(() => {})
       }
     }
     subRef.current = null
