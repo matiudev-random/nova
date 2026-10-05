@@ -59,16 +59,35 @@ Editá `public/nova-mark.svg` y corré `npx pwa-assets-generator`.
 
 ## Avisos (Web Push)
 
-El servidor no conoce los ítems: cada dispositivo suscripto le manda su agenda
-(nombre + fecha de vencimiento) cada vez que algo cambia. Un cron revisa cada hora
-qué venció y manda un push. Sin cuentas ni sincronización.
+Los manda el mismo PocketBase: es un binario propio (`server/`) que agrega los avisos
+al PocketBase oficial. Como el servidor ya tiene los ítems de cada cuenta, el
+dispositivo solo se anota; no manda agenda.
 
-- Supabase, proyecto **Nova** (`pyfnlemilbbuzlcuabuw`): tablas `subscriptions` y
-  `schedules` (RLS, sin acceso público), Edge Functions `push` (la llama la app) y
-  `send-due` (la llama `pg_cron` a los :07 de cada hora, solo entre 9 y 21 hora local).
-- Las claves VAPID se generaron dentro de la función `push` y viven en Vault; la
-  privada nunca salió de Supabase.
-- El código de las funciones está en `supabase/functions/`. Para redesplegar, subir
-  `index.ts` y `vapid.ts` de cada una.
-- `.env` tiene solo la URL del proyecto y la clave anónima (públicas por diseño).
+- `server/` = `examples/base` de PocketBase v0.40.4 (mismos flags, `pb_hooks` y
+  `pb_migrations` en JS, automigrate) + `push.go`. Sin el comando `update`: bajaría el
+  binario oficial y se perderían los avisos.
+- Rutas: `GET /api/nova/push/key` (clave pública), `POST`/`DELETE
+  /api/nova/push/subscription` (con sesión; anota o borra este dispositivo) y
+  `POST /api/nova/push/run` (solo superusuario: corre el envío sin esperar al cron).
+- Cron a los :07 de cada hora: por usuario, lo vencido de `nova_items` (última vez +
+  intervalo + pospuesto), solo entre 9 y 21 hora local del dispositivo. Un aviso por
+  vencimiento: `notifiedDue` guarda la fecha avisada; hecho o posponer la cambian.
+- Dispositivos en `nova_push_subs` (sin reglas de API: solo el servidor la toca).
+- Las claves VAPID se generan la primera vez en `<dir de datos>/nova_vapid.json`. Si
+  cambian, la app nota la clave nueva y se vuelve a suscribir sola.
 - En iPhone los avisos requieren la app instalada en pantalla de inicio (iOS 16.4+).
+
+Compilar y correr en Termux (necesita Go 1.27+, `pkg install golang`):
+
+```sh
+cd ~/nova && git pull
+cd server && CGO_ENABLED=0 go build -o ~/pb/pocketbase-proyects .
+cd ~/pb && ./pocketbase-proyects serve --dir=$HOME/pb/pelisMarvel --http=0.0.0.0:8090
+```
+
+`server/dns.go` usa DNS públicos cuando no hay `/etc/resolv.conf` (Android), y las
+zonas horarias van dentro del binario.
+
+Antes los avisos iban por Supabase (proyecto `pyfnlemilbbuzlcuabuw`). El cron
+`nova-send-due` quedó desactivado (`cron.alter_job(1, active := false)`); el código de
+las Edge Functions está en el historial de git (antes de este cambio).
