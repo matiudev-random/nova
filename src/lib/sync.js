@@ -7,7 +7,7 @@ import { pb } from './pb.js'
 // - Sin realtime: ngrok gratis bloquea el SSE de PocketBase. Se sincroniza al abrir,
 //   al volver a la app, al recuperar red, después de cada cambio y cada tanto.
 
-const items = () => pb.collection('items')
+const items = () => pb.collection('nova_items')
 
 function toRecord(item, deleted = false) {
   return {

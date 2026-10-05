@@ -35,7 +35,7 @@ fuente del dev server: usala para mostrar, no la publiques.
 
 Login con email y contraseña (colección `users`). El registro está cerrado: las
 cuentas se crean desde el panel de PocketBase (`/_/` → `users` → New record). Los ítems viven en la colección
-`items`, uno por registro, y cada usuario ve solo los suyos (reglas de la API).
+`nova_items`, uno por registro, y cada usuario ve solo los suyos (reglas de la API).
 
 - La app trabaja sobre `localStorage` y sincroniza: al abrir, al volver a la app, al
   recuperar red, un segundo después de cada cambio y cada 30 s con la app visible.
@@ -51,7 +51,7 @@ Configuración:
 - `.env`: `VITE_PB_URL` (URL pública del servidor).
 - `.env.local`: `PB_ADMIN_EMAIL` y `PB_ADMIN_PASSWORD` (superusuario). Solo los usa el
   script de setup; Vite no los expone a la app y git los ignora.
-- `npm run pb:setup` crea o actualiza la colección `items` (campos, reglas, índice).
+- `npm run pb:setup` crea o actualiza la colección `nova_items` (campos, reglas, índice).
 
 ## Regenerar iconos
 

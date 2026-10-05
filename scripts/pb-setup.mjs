@@ -1,4 +1,4 @@
-// Crea o actualiza la colección `items` en PocketBase. Se puede correr las veces
+// Crea o actualiza la colección `nova_items` en PocketBase. Se puede correr las veces
 // que haga falta: si ya existe, le reaplica campos, reglas e índices.
 //
 //   npm run pb:setup
@@ -48,7 +48,7 @@ const users = await api('/api/collections/users')
 // Cada usuario ve y toca solo lo suyo, y no puede pasarle un ítem a otro.
 const OWN = 'user = @request.auth.id'
 const items = {
-  name: 'items',
+  name: 'nova_items',
   type: 'base',
   listRule: OWN,
   viewRule: OWN,
@@ -81,14 +81,28 @@ const items = {
     { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
     { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
   ],
-  indexes: ['CREATE UNIQUE INDEX `idx_items_user_uid` ON `items` (`user`, `uid`)'],
+  indexes: ['CREATE UNIQUE INDEX `idx_nova_items_user_uid` ON `nova_items` (`user`, `uid`)'],
 }
 
-let existing = null
-try {
-  existing = await api('/api/collections/items')
-} catch (err) {
-  if (err.status !== 404) throw err
+async function find(name) {
+  try {
+    return await api(`/api/collections/${name}`)
+  } catch (err) {
+    if (err.status !== 404) throw err
+    return null
+  }
+}
+
+// Antes se llamaba `items`. Si la vieja es la de Nova (tiene `uid` y
+// `clientUpdatedAt`), se renombra con los datos adentro.
+let existing = await find('nova_items')
+if (!existing) {
+  const legacy = await find('items')
+  const isNova = ['uid', 'clientUpdatedAt'].every((n) => legacy?.fields.some((f) => f.name === n))
+  if (isNova) {
+    existing = legacy
+    console.log('Renombrando `items` → `nova_items`.')
+  }
 }
 
 if (existing) {
@@ -98,10 +112,10 @@ if (existing) {
   const keep = existing.fields.filter((f) => f.system)
   for (const f of keep) if (!fields.some((x) => x.name === f.name)) fields.unshift(f)
   await api(`/api/collections/${existing.id}`, { method: 'PATCH', body: { ...items, fields } })
-  console.log('Colección `items` actualizada.')
+  console.log('Colección `nova_items` actualizada.')
 } else {
   await api('/api/collections', { method: 'POST', body: items })
-  console.log('Colección `items` creada.')
+  console.log('Colección `nova_items` creada.')
 }
 
 const u = users.passwordAuth
