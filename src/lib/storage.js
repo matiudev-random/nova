@@ -18,6 +18,36 @@ export function saveItems(items) {
   }
 }
 
+// ---- Borrados pendientes de sincronizar: { [id]: ms del borrado } ----
+
+const DELETED_KEY = 'nova.deleted.v1'
+
+export function loadDeleted() {
+  try {
+    return JSON.parse(localStorage.getItem(DELETED_KEY)) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveDeleted(deleted) {
+  try {
+    localStorage.setItem(DELETED_KEY, JSON.stringify(deleted))
+  } catch {
+    // Igual que los ítems: sin storage se pierde al recargar, nada más.
+  }
+}
+
+// Al cerrar sesión: que el próximo usuario del dispositivo no vea nada del anterior.
+export function clearLocal() {
+  try {
+    localStorage.removeItem(KEY)
+    localStorage.removeItem(DELETED_KEY)
+  } catch {
+    // Nada que limpiar.
+  }
+}
+
 // ---- Copia de seguridad (JSON) ----
 
 export function serializeBackup(items) {

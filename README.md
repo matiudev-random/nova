@@ -3,7 +3,8 @@
 PWA para llevar la cuenta de las cosas que no son del día a día: cuándo cambiaste
 las sábanas, el cepillo de dientes, el filtro del agua.
 
-Stack: Vite + React (JavaScript), `vite-plugin-pwa`, datos en `localStorage`.
+Stack: Vite + React (JavaScript), `vite-plugin-pwa`. Cuentas y sincronización con
+PocketBase; `localStorage` como copia local para usarla sin red.
 
 ## Desarrollo
 
@@ -29,6 +30,28 @@ npm run tunnel       # imprime la URL pública
 
 La URL cambia en cada arranque. Cualquiera que la tenga ve la app y el código
 fuente del dev server: usala para mostrar, no la publiques.
+
+## Cuentas y sincronización (PocketBase)
+
+Login con email y contraseña (colección `users`). El registro está cerrado: las
+cuentas se crean desde el panel de PocketBase (`/_/` → `users` → New record). Los ítems viven en la colección
+`items`, uno por registro, y cada usuario ve solo los suyos (reglas de la API).
+
+- La app trabaja sobre `localStorage` y sincroniza: al abrir, al volver a la app, al
+  recuperar red, un segundo después de cada cambio y cada 30 s con la app visible.
+- Ante dos versiones del mismo ítem gana la de `clientUpdatedAt` más nuevo. Los
+  borrados quedan en el servidor como `deleted: true` para llegar a los otros dispositivos.
+- Lo que había en el dispositivo antes de iniciar sesión se sube a la cuenta. Al
+  cerrar sesión el dispositivo se olvida de todo (sigue en el servidor).
+- Sin realtime: ngrok gratis responde su página de advertencia a `EventSource`, que no
+  puede mandar el header `ngrok-skip-browser-warning`.
+
+Configuración:
+
+- `.env`: `VITE_PB_URL` (URL pública del servidor).
+- `.env.local`: `PB_ADMIN_EMAIL` y `PB_ADMIN_PASSWORD` (superusuario). Solo los usa el
+  script de setup; Vite no los expone a la app y git los ignora.
+- `npm run pb:setup` crea o actualiza la colección `items` (campos, reglas, índice).
 
 ## Regenerar iconos
 

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Account } from './components/Account.jsx'
 import { AddItemForm } from './components/AddItemForm.jsx'
+import { AuthScreen } from './components/AuthScreen.jsx'
 import { Backup } from './components/Backup.jsx'
 import { ItemRow } from './components/ItemRow.jsx'
 import { Notices } from './components/Notices.jsx'
 import { Summary } from './components/Summary.jsx'
 import { Toast } from './components/Toast.jsx'
+import { useAuth } from './hooks/useAuth.js'
 import { useItems } from './hooks/useItems.js'
 import { usePush } from './hooks/usePush.js'
 import { formatShort, todayISO } from './lib/dates.js'
@@ -17,8 +20,20 @@ const SECTIONS = [
 ]
 
 function App() {
-  const { items, addItem, markDone, postpone, editItem, restoreItem, removeItem, importItems } =
-    useItems()
+  const auth = useAuth()
+  const {
+    items,
+    sync,
+    syncNow,
+    addItem,
+    markDone,
+    postpone,
+    editItem,
+    restoreItem,
+    removeItem,
+    importItems,
+    reset,
+  } = useItems(auth.user)
   const push = usePush(items)
   const [adding, setAdding] = useState(false)
   const [toast, setToast] = useState(null)
@@ -60,9 +75,24 @@ function App() {
     p?.catch?.(() => {})
   }, [overdue])
 
+  async function logout() {
+    // Los avisos de este dispositivo eran de la cuenta que se va.
+    if (push.status === 'on') await push.disable()
+    reset()
+    auth.logout()
+    setAdding(false)
+    setToast(null)
+  }
+
   async function enablePush() {
     const r = await push.enable()
     notify(r.ok ? 'Listo: te aviso cuando venza algo.' : r.message)
+  }
+
+  if (!auth.user) {
+    return (
+      <AuthScreen onLogin={auth.login} hasLocalItems={items.length > 0} />
+    )
   }
 
   return (
@@ -137,6 +167,7 @@ function App() {
       )}
 
       <footer className="mt-4 pt-5 border-t border-line flex flex-col gap-3 text-sm text-muted">
+        <Account user={auth.user} sync={sync} onSync={syncNow} onLogout={logout} />
         <Notices status={push.status} onEnable={enablePush} onDisable={push.disable} notify={notify} />
         <Backup items={items} onImport={importItems} notify={notify} />
       </footer>

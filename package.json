@@ -10,9 +10,11 @@
     "preview": "vite preview",
     "dev:tunnel": "vite --mode tunnel --port 5173 --strictPort",
     "tunnel": "\"%LOCALAPPDATA%/cloudflared/cloudflared.exe\" tunnel --url http://localhost:5173",
-    "preview:tunnel": "vite preview --mode tunnel"
+    "preview:tunnel": "vite preview --mode tunnel",
+    "pb:setup": "node --env-file=.env --env-file=.env.local scripts/pb-setup.mjs"
   },
   "dependencies": {
+    "pocketbase": "^0.28.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

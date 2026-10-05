@@ -48,3 +48,11 @@ const shortDate = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short'
 export function formatShort(iso) {
   return shortDate.format(parseISO(iso)).replace('.', '')
 }
+
+const clock = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' })
+
+// "a las 14:05" (o "el 14 sep" si no fue hoy). Recibe un timestamp en ms.
+export function formatTime(ms) {
+  const d = new Date(ms)
+  return todayISO(d) === todayISO() ? `a las ${clock.format(d)}` : `el ${formatShort(todayISO(d))}`
+}
